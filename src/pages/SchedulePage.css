@@ -1,0 +1,104 @@
+.schedule-page {}
+
+.sched-header {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 24px 28px 16px; flex-wrap: wrap; gap: 12px;
+  border-bottom: 1px solid #EEEAE0;
+}
+.sched-header h2 { font-family: 'Playfair Display', serif; font-size: 22px; }
+.court-filter { display: flex; gap: 6px; flex-wrap: wrap; }
+.filter-btn {
+  padding: 5px 14px; border: 1px solid #E0DDD4; border-radius: 20px;
+  font-size: 12px; cursor: pointer; background: var(--white); color: var(--ink-soft);
+  transition: all 0.12s;
+}
+.filter-btn:hover  { border-color: var(--gold); color: var(--gold-dark); }
+.filter-btn.active { background: var(--gold); border-color: var(--gold); color: var(--white); font-weight: 500; }
+
+/* Date strip */
+.date-strip {
+  display: flex; gap: 6px;
+  padding: 14px 28px; overflow-x: auto;
+  border-bottom: 1px solid #EEEAE0;
+}
+.date-item {
+  display: flex; flex-direction: column; align-items: center;
+  padding: 8px 14px; border-radius: 10px; cursor: pointer;
+  border: 1px solid transparent; min-width: 58px; transition: all 0.12s;
+}
+.date-item:hover { background: var(--surface-2); }
+.date-item.active { background: var(--gold-light); border-color: rgba(201,169,110,0.4); }
+.di-day { font-size: 11px; color: var(--ink-soft); margin-bottom: 2px; }
+.di-num { font-size: 18px; font-weight: 500; color: var(--ink); }
+.date-item.active .di-day,
+.date-item.active .di-num { color: var(--gold-dark); }
+
+/* Legend */
+.legend-row {
+  display: flex; gap: 20px; flex-wrap: wrap;
+  padding: 12px 28px; background: var(--surface-2); border-bottom: 1px solid #EEEAE0;
+}
+.leg { display: flex; align-items: center; gap: 7px; font-size: 12px; color: var(--ink-soft); }
+.leg-dot { width: 11px; height: 11px; border-radius: 3px; }
+.leg-dot.mine  { background: var(--gold-light); border: 1px solid rgba(201,169,110,0.5); }
+.leg-dot.taken { background: #FEF0EE; border: 1px solid #F0A090; }
+.leg-dot.free  { background: var(--white); border: 1px solid #E0DDD4; }
+
+/* Body */
+.sched-body { padding: 20px 28px 48px; }
+.court-section { margin-bottom: 28px; }
+.court-section-title {
+  font-size: 11px; text-transform: uppercase; letter-spacing: 0.08em;
+  color: var(--ink-soft); margin-bottom: 8px; font-weight: 500;
+  padding-bottom: 6px; border-bottom: 1px solid #EEEAE0;
+}
+
+.slot-row { display: flex; gap: 10px; align-items: stretch; margin-bottom: 5px; }
+.slot-time {
+  font-size: 11px; color: var(--ink-soft);
+  min-width: 38px; padding-top: 13px; text-align: right;
+}
+.slot-cell {
+  flex: 1; border-radius: var(--radius);
+  min-height: 46px; border: 1px solid transparent;
+  cursor: pointer; transition: border-color 0.12s, background 0.12s;
+}
+.slot-cell.free  { background: var(--white); border-color: #EEEAE0; }
+.slot-cell.free:hover { border-color: var(--gold); background: var(--gold-light); }
+.slot-cell.taken { background: #FEF0EE; border-color: #F0B8A8; }
+.slot-cell.taken:hover { border-color: #E08060; }
+.slot-cell.mine  { background: var(--gold-light); border-color: rgba(201,169,110,0.45); }
+.slot-cell.mine:hover { border-color: var(--gold); }
+
+.slot-free-inner {
+  display: flex; align-items: center; justify-content: center;
+  height: 100%; font-size: 12px; color: var(--green-mid);
+  font-weight: 500; padding: 10px;
+}
+.slot-inner { padding: 9px 13px; }
+.slot-member-row { display: flex; align-items: center; gap: 9px; }
+
+.slot-av {
+  width: 26px; height: 26px; border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 10px; font-weight: 500; flex-shrink: 0;
+}
+.av-taken { background: #F7C1C1; color: #7A1F1F; }
+.av-mine  { background: rgba(201,169,110,0.3); color: var(--gold-dark); }
+
+.slot-name { font-size: 12px; font-weight: 500; }
+.name-taken { color: #8A2020; }
+.name-mine  { color: var(--gold-dark); }
+.slot-meta  { font-size: 11px; color: var(--ink-soft); margin-top: 2px; }
+
+.slot-badge {
+  font-size: 10px; padding: 2px 9px; border-radius: 10px;
+  font-weight: 500; margin-left: auto; flex-shrink: 0;
+}
+.badge-taken { background: #F7C1C1; color: #7A1F1F; }
+.badge-mine  { background: rgba(201,169,110,0.3); color: var(--gold-dark); }
+
+@media (max-width: 600px) {
+  .sched-header, .sched-body, .legend-row, .date-strip { padding-left: 16px; padding-right: 16px; }
+  .sched-header { flex-direction: column; align-items: flex-start; }
+}

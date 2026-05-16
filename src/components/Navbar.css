@@ -1,0 +1,53 @@
+.navbar {
+  display: flex;
+  align-items: center;
+  padding: 0 24px;
+  height: 56px;
+  background: var(--green);
+  border-bottom: 1px solid rgba(255,255,255,0.07);
+  gap: 20px;
+  position: sticky;
+  top: 0;
+  z-index: 200;
+}
+.nav-logo {
+  font-family: 'Playfair Display', serif;
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--gold);
+  letter-spacing: 0.1em;
+  white-space: nowrap;
+}
+.nav-tabs { display: flex; gap: 2px; flex: 1; }
+.nav-tab {
+  padding: 7px 16px;
+  border: none;
+  background: transparent;
+  color: rgba(255,255,255,0.5);
+  font-size: 13px;
+  cursor: pointer;
+  border-radius: 7px;
+  transition: all 0.12s;
+}
+.nav-tab:hover  { background: rgba(255,255,255,0.08); color: rgba(255,255,255,0.8); }
+.nav-tab.active { background: rgba(201,169,110,0.18); color: var(--gold); font-weight: 500; }
+.nav-user { display: flex; align-items: center; gap: 10px; }
+.nav-avatar {
+  width: 30px; height: 30px; border-radius: 50%;
+  background: var(--gold-light); color: var(--gold-dark);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 13px; font-weight: 500;
+}
+.nav-name { font-size: 13px; color: rgba(255,255,255,0.65); white-space: nowrap; }
+.btn-nav-logout {
+  font-size: 12px; color: rgba(255,255,255,0.3);
+  background: none; border: none; cursor: pointer;
+  padding: 4px 8px; transition: color 0.12s;
+}
+.btn-nav-logout:hover { color: rgba(255,255,255,0.65); }
+
+@media (max-width: 600px) {
+  .nav-tabs  { display: none; }
+  .nav-name  { display: none; }
+  .navbar    { padding: 0 16px; }
+}
