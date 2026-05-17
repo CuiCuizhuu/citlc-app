@@ -44,7 +44,7 @@ export default function MyBookingsPage({ bookings, userName, onCancel, lang }) {
           {mine.map((b, i) => {
             const court  = COURT_MAP[b.court];
             const isPast = b.date < TODAY;
-            const [dd, mm] = b.date.split('/');
+            const [mm, dd] = b.date.split('/');
             const surfLabel = t.surfaces[court?.surfaceKey] || court?.surfaceKey;
             const typeLabel = t.types[court?.typeKey] || court?.typeKey;
             const durLabel  = t.durLabels[b.dur] || b.dur;
