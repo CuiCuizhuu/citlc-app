@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { TIME_SLOTS } from '../data/data';
 import { T } from '../data/i18n';
+import { getDates } from '../data/dates';
 import './BookingPage.css';
 
 const DURATIONS = ['1h', '2h'];
@@ -8,7 +9,7 @@ const MODE_KEYS = ['casual', 'training', 'match'];
 
 export default function BookingPage({ court, bookings, userName, onBack, onConfirm, lang }) {
   const t = T[lang];
-  const DATES = t.dates;
+  const DATES = getDates(lang);
 
   const [step,    setStep]   = useState(1);
   const [date,    setDate]   = useState(DATES[0].full);

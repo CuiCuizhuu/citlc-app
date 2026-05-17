@@ -1,12 +1,13 @@
 import { useState } from 'react';
 import { COURTS, TIME_SLOTS } from '../data/data';
 import { T } from '../data/i18n';
+import { getDates } from '../data/dates';
 import Modal from '../components/Modal';
 import './SchedulePage.css';
 
 export default function SchedulePage({ bookings, userName, onBook, lang }) {
   const t = T[lang];
-  const DATES = t.dates;
+  const DATES = getDates(lang);
   const [selDate,  setSelDate]  = useState(DATES[0].full);
   const [selCourt, setSelCourt] = useState(0);
   const [modal,    setModal]    = useState(null);

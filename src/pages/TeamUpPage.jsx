@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { T } from '../data/i18n';
+import { getDates } from '../data/dates';
 import { MEMBERS } from '../data/data';
 import './TeamUpPage.css';
 
@@ -66,7 +67,7 @@ export default function TeamUpPage({ posts, chats, userName, lang, onAddPost, on
     setNewMsg('');
   }
 
-  const DATES_MAP = Object.fromEntries((t.dates || []).map(d => [d.full, (d.day || d.short) + ' ' + d.num]));
+  const DATES_MAP = Object.fromEntries((getDates(lang)).map(d => [d.full, (d.day || d.short) + ' ' + d.num]));
   const TIMES = ['08:00','09:00','10:00','11:00','12:00','13:00','14:00','15:00','16:00','17:00','18:00','19:00'];
 
   const currentChat = chatWith?.chatId ? chats.find(c => c.id === chatWith.chatId) : null;
@@ -221,7 +222,7 @@ export default function TeamUpPage({ posts, chats, userName, lang, onAddPost, on
               <div className="field-group">
                 <div className="field-label">{tu.availDate}</div>
                 <div className="pill-row" style={{ flexWrap:'wrap' }}>
-                  {(t.dates || []).map(d => (
+                  {(getDates(lang)).map(d => (
                     <button key={d.full} className={`pill ${npDate === d.full ? 'active' : ''}`}
                       onClick={() => setNpDate(d.full)}>{d.day || d.short} {d.num}</button>
                   ))}
