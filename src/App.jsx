@@ -89,8 +89,8 @@ export default function App() {
       p.id === post.id ? { ...p, status: "matched" } : p
     ));
 
-    // 给双方都创建预约记录
-    const sharedBooking = {
+    // 给双方都创建预约记录（去重，每人只加一条）
+    const sharedBase = {
       court: COURTS[0].id,
       date: post.date,
       time: post.timeFrom,
@@ -98,20 +98,19 @@ export default function App() {
       people: post.type === "doubles" ? 4 : 2,
       mode: post.type === "doubles" ? "双打" : "单打",
       modeKey: post.type === "doubles" ? "doubles" : "singles",
-      isMe: false,
     };
 
-    // 发帖人的预约
-    const authorBooking = { ...sharedBooking, member: post.author, isMe: post.author === user.name };
+    // 收集所有参与人（发帖人 + 申请者），去重
+    const allMembers = [post.author, ...(post.applicants || [])];
+    const uniqueMembers = [...new Set(allMembers)];
 
-    // 所有申请者的预约
-    const applicantBookings = (post.applicants || []).map(applicant => ({
-      ...sharedBooking,
-      member: applicant,
-      isMe: applicant === user.name,
+    const newBookings = uniqueMembers.map(member => ({
+      ...sharedBase,
+      member,
+      isMe: member === user.name,
     }));
 
-    setBookings(prev => [...prev, authorBooking, ...applicantBookings]);
+    setBookings(prev => [...prev, ...newBookings]);
 
     // 积分奖励
     setProfile(prev => ({ ...prev, points: (prev?.points || 0) + 10 }));
