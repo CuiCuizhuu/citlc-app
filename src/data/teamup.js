@@ -1,25 +1,32 @@
 // ============================================================
-//  teamup.js — 组队功能的模拟数据
+//  teamup.js — 组队功能的模拟数据（日期动态生成）
 // ============================================================
 
-// 组队帖子：发布自己有空的时间，等待他人申请
+function getDate(daysFromNow) {
+  const d = new Date();
+  d.setDate(d.getDate() + daysFromNow);
+  const dd = String(d.getDate()).padStart(2, '0');
+  const mm = String(d.getMonth() + 1).padStart(2, '0');
+  return `${mm}/${dd}`;
+}
+
 export const INITIAL_POSTS = [
   {
     id: 'p1',
     author: '李雷',
-    date: '05/03',
+    date: getDate(0),
     timeFrom: '15:00',
     timeTo: '17:00',
     level: 'senior',
-    type: 'singles',      // singles | doubles
+    type: 'singles',
     note: '找一个水平相当的单打对手，轻松练习为主',
-    status: 'open',       // open | matched | closed
+    status: 'open',
     applicants: [],
   },
   {
     id: 'p2',
     author: '王芳',
-    date: '05/04',
+    date: getDate(1),
     timeFrom: '10:00',
     timeTo: '12:00',
     level: 'regular',
@@ -31,7 +38,7 @@ export const INITIAL_POSTS = [
   {
     id: 'p3',
     author: '赵磊',
-    date: '05/05',
+    date: getDate(2),
     timeFrom: '14:00',
     timeTo: '16:00',
     level: 'diamond',
@@ -42,16 +49,15 @@ export const INITIAL_POSTS = [
   },
 ];
 
-// 私信记录：{ id, participants:[A,B], messages:[{from, text, time}] }
 export const INITIAL_CHATS = [
   {
     id: 'c1',
     participants: ['李雷', '陈志远'],
     postId: null,
     messages: [
-      { from:'李雷',   text:'你好，我看你之前发过组队帖，周末有空吗？', time:'09:15' },
-      { from:'陈志远', text:'有的！周六下午3点怎么样？', time:'09:18' },
-      { from:'李雷',   text:'可以，那我们约 Court 1 吧', time:'09:20' },
+      { from: '李雷',   text: '你好，我看你之前发过组队帖，周末有空吗？', time: '09:15' },
+      { from: '陈志远', text: '有的！周六下午3点怎么样？',                 time: '09:18' },
+      { from: '李雷',   text: '可以，那我们约 Court 1 吧',               time: '09:20' },
     ],
   },
 ];
