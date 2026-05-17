@@ -3,10 +3,11 @@ import LanguageSwitcher from './LanguageSwitcher';
 import './Navbar.css';
 
 const TABS = [
-  { key: 'home',       tKey: 'bookCourt'  },
-  { key: 'schedule',   tKey: 'schedule'   },
-  { key: 'teamup',     tKey: 'teamUpNav'  },
-  { key: 'mybookings', tKey: 'myBookings' },
+  { key:'home',       tKey:'bookCourt'  },
+  { key:'schedule',   tKey:'schedule'   },
+  { key:'teamup',     tKey:'teamUpNav'  },
+  { key:'mybookings', tKey:'myBookings' },
+  { key:'profile',    tKey:'profileNav' },
 ];
 
 export default function Navbar({ userName, activeTab, onTabChange, onLogout, lang, onLangChange }) {
@@ -20,7 +21,7 @@ export default function Navbar({ userName, activeTab, onTabChange, onLogout, lan
           <button key={tab.key}
             className={`nav-tab ${activeTab === tab.key ? 'active' : ''}`}
             onClick={() => onTabChange(tab.key)}>
-            {t[tab.tKey] || t.teamUp?.title}
+            {t[tab.tKey]}
           </button>
         ))}
       </div>
