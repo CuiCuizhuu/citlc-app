@@ -231,12 +231,12 @@ export default function TeamUpPage({ posts, chats, userName, lang, onAddPost, on
               <div className="field-group">
                 <div className="field-label">{tu.availTime}</div>
                 <div style={{ display:'flex', gap:10, alignItems:'center' }}>
-                  <select className="tu-select" value={npFrom} onChange={e => setNpFrom(e.target.value)}>
+                  <select className="tu-select" value={npFrom} onChange={e => { setNpFrom(e.target.value); const fromH = parseInt(e.target.value); const toH = fromH + 1; setNpTo(String(toH).padStart(2,'0') + ':00'); }}>
                     {TIMES.map(t2 => <option key={t2} value={t2}>{t2}</option>)}
                   </select>
                   <span style={{ color:'var(--ink-soft)' }}>—</span>
                   <select className="tu-select" value={npTo} onChange={e => setNpTo(e.target.value)}>
-                    {TIMES.map(t2 => <option key={t2} value={t2}>{t2}</option>)}
+                    {TIMES.filter(t2 => t2 > npFrom).map(t2 => <option key={t2} value={t2}>{t2}</option>)}
                   </select>
                 </div>
               </div>
