@@ -84,12 +84,40 @@ export default function App() {
 
   // ── TeamUp ───────────────────────────────────────────────────
   function handleBookFromPost(post) {
-    // 组队成功 → 帖子状态改为 matched，布告栏不能再申请
+    // 组队成功 → 帖子状态改为 matched
     setPosts(prev => prev.map(p =>
       p.id === post.id ? { ...p, status: "matched" } : p
     ));
-    setBooking({ court: COURTS[0], prefTime: post.timeFrom });
-    setTab("booking");
+
+    // 给双方都创建预约记录
+    const sharedBooking = {
+      court: COURTS[0].id,
+      date: post.date,
+      time: post.timeFrom,
+      dur: "1h",
+      people: post.type === "doubles" ? 4 : 2,
+      mode: post.type === "doubles" ? "双打" : "单打",
+      modeKey: post.type === "doubles" ? "doubles" : "singles",
+      isMe: false,
+    };
+
+    // 发帖人的预约
+    const authorBooking = { ...sharedBooking, member: post.author, isMe: post.author === user.name };
+
+    // 所有申请者的预约
+    const applicantBookings = (post.applicants || []).map(applicant => ({
+      ...sharedBooking,
+      member: applicant,
+      isMe: applicant === user.name,
+    }));
+
+    setBookings(prev => [...prev, authorBooking, ...applicantBookings]);
+
+    // 积分奖励
+    setProfile(prev => ({ ...prev, points: (prev?.points || 0) + 10 }));
+
+    // 跳转到时刻表确认
+    setTab("mybookings");
   }
 
   function handleAddPost(post) {
