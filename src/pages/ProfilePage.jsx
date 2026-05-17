@@ -1,6 +1,6 @@
 import { useState, useRef } from 'react';
 import { T } from '../data/i18n';
-import { getDates } from '../data/dates';
+import { getDates, getToday } from '../data/dates';
 import { COURTS } from '../data/data';
 import './ProfilePage.css';
 
@@ -23,7 +23,7 @@ export default function ProfilePage({ profile, bookings, posts, lang, onSave, on
 
   const myBookings = (bookings || []).filter(b => b.member === profile?.name || b.isMe);
   const myPosts    = (posts    || []).filter(p => p.author === profile?.name);
-  const today = getDates(lang)[0].full;
+  const today = getToday();
 
   // Stats
   const totalBookings   = myBookings.length;

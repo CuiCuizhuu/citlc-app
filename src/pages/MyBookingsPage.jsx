@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { COURTS } from '../data/data';
 import { T } from '../data/i18n';
-import { getDates } from '../data/dates';
+import { getDates, getToday } from '../data/dates';
 import './MyBookingsPage.css';
 
 const COURT_MAP = Object.fromEntries(COURTS.map(c => [c.id, c]));
@@ -14,7 +14,7 @@ const MONTHS = {
 
 export default function MyBookingsPage({ bookings, userName, onCancel, lang }) {
   const t = T[lang];
-  const TODAY = getDates(lang)[0].full;
+  const TODAY = getToday();
   const [confirmIdx, setConfirmIdx] = useState(null);
 
   const mine = bookings

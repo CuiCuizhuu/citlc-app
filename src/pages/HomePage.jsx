@@ -1,13 +1,13 @@
 import { COURTS, TIME_SLOTS } from '../data/data';
 import { T } from '../data/i18n';
-import { getDates } from '../data/dates';
+import { getDates, getToday } from '../data/dates';
 import './HomePage.css';
 
 const SURFACE_CLS = { hard:'hard', clay:'clay', indoor:'indoor', grass:'grass' };
 
 export default function HomePage({ bookings, onSelectCourt, lang }) {
   const t = T[lang];
-  const today = getDates(lang)[0].full;
+  const today = getToday();
 
   function getCourtStats(courtId) {
     const takenSlots = TIME_SLOTS.filter(slot => {
