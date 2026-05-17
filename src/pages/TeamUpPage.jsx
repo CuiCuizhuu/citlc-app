@@ -22,7 +22,7 @@ export default function TeamUpPage({ posts, chats, userName, lang, onAddPost, on
   const [npNote,     setNpNote]     = useState('');
 
   const myPosts     = posts.filter(p => p.author === userName);
-  const otherPosts  = posts.filter(p => p.author !== userName && p.status === 'open');
+  const otherPosts  = posts.filter(p => p.author !== userName);  // matched 帖子也显示，但申请按钮不显示
   const myChats     = chats.filter(c => c.participants.includes(userName));
 
   // Unread count: chats where last message is not from me

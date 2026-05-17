@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import './index.css';
 
 import AuthPage       from './pages/AuthPage';
@@ -7,13 +7,20 @@ import BookingPage    from './pages/BookingPage';
 import SchedulePage   from './pages/SchedulePage';
 import MyBookingsPage from './pages/MyBookingsPage';
 import TeamUpPage     from './pages/TeamUpPage';
+import ProfilePage    from './pages/ProfilePage';
 import Navbar         from './components/Navbar';
 
 import { INITIAL_BOOKINGS, COURTS } from './data/data';
 import { INITIAL_POSTS, INITIAL_CHATS } from './data/teamup';
 
+// ── Supabase (swap in when ready) ────────────────────────────
+// import { supabase, signIn, signUp, signOut, getProfile,
+//          upsertProfile, uploadAvatar, getBookings,
+//          createBooking, cancelBooking } from './lib/supabase';
+
 export default function App() {
-  const [user,     setUser]     = useState(null);
+  const [user,     setUser]     = useState(null);    // { id, name, email }
+  const [profile,  setProfile]  = useState(null);    // full profile object
   const [tab,      setTab]      = useState('home');
   const [bookings, setBookings] = useState(INITIAL_BOOKINGS);
   const [booking,  setBooking]  = useState(null);
@@ -21,9 +28,38 @@ export default function App() {
   const [posts,    setPosts]    = useState(INITIAL_POSTS);
   const [chats,    setChats]    = useState(INITIAL_CHATS);
 
-  function handleLogin(name)  { setUser(name); setTab('home'); }
-  function handleLogout()     { setUser(null); setBooking(null); setTab('home'); }
+  // ── Auth ─────────────────────────────────────────────────────
+  function handleLogin(name, email) {
+    const u = { id: Date.now().toString(), name, email };
+    setUser(u);
+    setProfile({
+      id: u.id, name, email,
+      phone: '', level: 'intermediate', years_playing: 2,
+      bio: '', avatar_url: null, points: 30,
+    });
+    setTab('home');
+  }
 
+  function handleLogout() {
+    setUser(null); setProfile(null);
+    setBooking(null); setTab('home');
+  }
+
+  // ── Profile ──────────────────────────────────────────────────
+  async function handleSaveProfile(updates) {
+    setProfile(prev => ({ ...prev, ...updates }));
+    setUser(prev => ({ ...prev, name: updates.name }));
+    // With Supabase: await upsertProfile({ id: user.id, ...updates });
+  }
+
+  async function handleAvatarChange(file) {
+    // With Supabase: const url = await uploadAvatar(user.id, file);
+    // For now: use local object URL preview
+    const url = URL.createObjectURL(file);
+    setProfile(prev => ({ ...prev, avatar_url: url }));
+  }
+
+  // ── Bookings ─────────────────────────────────────────────────
   function handleSelectCourt(court) { setBooking({ court, prefTime:'' }); setTab('booking'); }
 
   function handleBookFromSchedule(courtId, time) {
@@ -32,58 +68,58 @@ export default function App() {
     setTab('booking');
   }
 
-  function handleConfirm(newBooking) { setBookings(prev => [...prev, newBooking]); }
+  function handleConfirm(newBooking) {
+    setBookings(prev => [...prev, newBooking]);
+    // With Supabase: await createBooking({ ...newBooking, user_id: user.id });
+    // Award points
+    setProfile(prev => ({ ...prev, points: (prev?.points || 0) + 10 }));
+  }
 
   function handleCancel(target) {
     setBookings(prev => prev.filter(b =>
       !(b.court === target.court && b.date === target.date && b.time === target.time)
     ));
+    // With Supabase: await cancelBooking(target.id);
   }
 
-  // TeamUp: book court from a post
+  // ── TeamUp ───────────────────────────────────────────────────
   function handleBookFromPost(post) {
-    const court = COURTS[0]; // default Court 1; user picks in booking flow
-    setBooking({ court, prefTime: post.timeFrom });
-    setTab('booking');
+    // 组队成功 → 帖子状态改为 matched，布告栏不能再申请
+    setPosts(prev => prev.map(p =>
+      p.id === post.id ? { ...p, status: "matched" } : p
+    ));
+    setBooking({ court: COURTS[0], prefTime: post.timeFrom });
+    setTab("booking");
   }
 
-  // TeamUp: add new availability post
   function handleAddPost(post) {
     setPosts(prev => [post, ...prev]);
+    setProfile(prev => ({ ...prev, points: (prev?.points || 0) + 5 }));
   }
 
-  // TeamUp: apply to a post (adds user to applicants + opens chat)
   function handleApply(postId, applicant) {
     setPosts(prev => prev.map(p =>
       p.id === postId && !p.applicants.includes(applicant)
-        ? { ...p, applicants: [...p.applicants, applicant] }
-        : p
+        ? { ...p, applicants: [...p.applicants, applicant] } : p
     ));
   }
 
-  // TeamUp: send message, create chat if doesn't exist
   function handleSendMsg(chatWith, text, from) {
     const now = new Date();
     const timeStr = `${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}`;
-    const newMsg = { from, text, time: timeStr };
-
     setChats(prev => {
       const existing = prev.find(c =>
         c.participants.includes(from) && c.participants.includes(chatWith.otherUser)
       );
       if (existing) {
         return prev.map(c => c.id === existing.id
-          ? { ...c, messages: [...c.messages, newMsg] }
-          : c
+          ? { ...c, messages: [...c.messages, { from, text, time: timeStr }] } : c
         );
-      } else {
-        return [...prev, {
-          id: 'c' + Date.now(),
-          participants: [from, chatWith.otherUser],
-          postId: chatWith.postId,
-          messages: [newMsg],
-        }];
       }
+      return [...prev, {
+        id: 'c' + Date.now(), participants: [from, chatWith.otherUser],
+        postId: chatWith.postId, messages: [{ from, text, time: timeStr }],
+      }];
     });
   }
 
@@ -94,32 +130,35 @@ export default function App() {
   return (
     <div>
       <Navbar
-        userName={user} activeTab={tab}
+        userName={user.name} activeTab={tab}
         onTabChange={t => { setTab(t); setBooking(null); }}
-        onLogout={handleLogout}
-        lang={lang} onLangChange={setLang}
+        onLogout={handleLogout} lang={lang} onLangChange={setLang}
       />
 
       {tab === 'home' && (
-        <HomePage bookings={bookings} userName={user} onSelectCourt={handleSelectCourt} lang={lang} />
+        <HomePage bookings={bookings} userName={user.name} onSelectCourt={handleSelectCourt} lang={lang} />
       )}
       {tab === 'booking' && booking && (
-        <BookingPage court={booking.court} bookings={bookings} userName={user}
+        <BookingPage court={booking.court} bookings={bookings} userName={user.name}
           onBack={() => setTab('home')} onConfirm={handleConfirm} lang={lang} />
       )}
       {tab === 'schedule' && (
-        <SchedulePage bookings={bookings} userName={user} onBook={handleBookFromSchedule} lang={lang} />
+        <SchedulePage bookings={bookings} userName={user.name} onBook={handleBookFromSchedule} lang={lang} />
       )}
       {tab === 'mybookings' && (
-        <MyBookingsPage bookings={bookings} userName={user} onCancel={handleCancel} lang={lang} />
+        <MyBookingsPage bookings={bookings} userName={user.name} onCancel={handleCancel} lang={lang} />
       )}
       {tab === 'teamup' && (
-        <TeamUpPage
-          posts={posts} chats={chats} userName={user} lang={lang}
-          onAddPost={handleAddPost}
-          onApply={handleApply}
-          onSendMsg={handleSendMsg}
-          onBookCourt={handleBookFromPost}
+        <TeamUpPage posts={posts} chats={chats} userName={user.name} lang={lang}
+          onAddPost={handleAddPost} onApply={handleApply}
+          onSendMsg={handleSendMsg} onBookCourt={handleBookFromPost}
+        />
+      )}
+      {tab === 'profile' && (
+        <ProfilePage
+          profile={{ ...profile, email: user.email }}
+          bookings={bookings} posts={posts} lang={lang}
+          onSave={handleSaveProfile} onAvatarChange={handleAvatarChange}
         />
       )}
     </div>
