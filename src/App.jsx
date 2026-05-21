@@ -10,113 +10,147 @@ import TeamUpPage     from './pages/TeamUpPage';
 import ProfilePage    from './pages/ProfilePage';
 import Navbar         from './components/Navbar';
 
-import { INITIAL_BOOKINGS, COURTS } from './data/data';
+import { COURTS } from './data/data';
 import { INITIAL_POSTS, INITIAL_CHATS } from './data/teamup';
 
-// ── Supabase (swap in when ready) ────────────────────────────
-// import { supabase, signIn, signUp, signOut, getProfile,
-//          upsertProfile, uploadAvatar, getBookings,
-//          createBooking, cancelBooking } from './lib/supabase';
+import {
+  supabase,
+  signOut,
+  getProfile,
+  upsertProfile,
+  uploadAvatar,
+  getBookings,
+  createBooking,
+  cancelBooking,
+} from './lib/supabase';
 
 export default function App() {
-  const [user,     setUser]     = useState(null);    // { id, name, email }
-  const [profile,  setProfile]  = useState(null);    // full profile object
+  const [user,     setUser]     = useState(null);
+  const [profile,  setProfile]  = useState(null);
   const [tab,      setTab]      = useState('home');
-  const [bookings, setBookings] = useState(INITIAL_BOOKINGS);
+  const [bookings, setBookings] = useState([]);
   const [booking,  setBooking]  = useState(null);
   const [lang,     setLang]     = useState('zh');
   const [posts,    setPosts]    = useState(INITIAL_POSTS);
   const [chats,    setChats]    = useState(INITIAL_CHATS);
+  const [loading,  setLoading]  = useState(true);
 
-  // ── Auth ─────────────────────────────────────────────────────
-  function handleLogin(name, email) {
-    const u = { id: Date.now().toString(), name, email };
-    setUser(u);
-    setProfile({
-      id: u.id, name, email,
-      phone: '', level: 'intermediate', years_playing: 2,
-      bio: '', avatar_url: null, points: 30,
+  // ── 初始化：检查是否已登录 ────────────────────────────────
+  useEffect(() => {
+    supabase.auth.getSession().then(async ({ data: { session } }) => {
+      if (session?.user) await loadUser(session.user);
+      setLoading(false);
     });
-    setTab('home');
+
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
+      if (event === 'SIGNED_IN' && session?.user) {
+        await loadUser(session.user);
+      } else if (event === 'SIGNED_OUT') {
+        setUser(null); setProfile(null); setBookings([]); setTab('home');
+      }
+    });
+    return () => subscription.unsubscribe();
+  }, []);
+
+  async function loadUser(authUser) {
+    const tryLoad = async () => {
+      const prof = await getProfile(authUser.id);
+      setUser({ id: authUser.id, name: prof.name, email: authUser.email });
+      setProfile({ ...prof, email: authUser.email });
+      await loadBookings();
+    };
+    try {
+      await tryLoad();
+    } catch {
+      setTimeout(async () => { try { await tryLoad(); } catch (e) { console.error(e); } }, 1500);
+    }
   }
 
-  function handleLogout() {
-    setUser(null); setProfile(null);
-    setBooking(null); setTab('home');
+  async function loadBookings() {
+    try {
+      const data = await getBookings();
+      setBookings(data.map(b => ({
+        id: b.id, court: b.court, date: b.date, time: b.time,
+        dur: b.dur, people: b.people, modeKey: b.mode_key,
+        member: b.profiles?.name || '', userId: b.user_id,
+      })));
+    } catch (e) { console.error('Load bookings:', e); }
   }
 
-  // ── Profile ──────────────────────────────────────────────────
+  // ── Auth ──────────────────────────────────────────────────
+  function handleLogin() { setTab('home'); }
+
+  async function handleLogout() {
+    await signOut();
+  }
+
+  // ── Profile ───────────────────────────────────────────────
   async function handleSaveProfile(updates) {
-    setProfile(prev => ({ ...prev, ...updates }));
-    setUser(prev => ({ ...prev, name: updates.name }));
-    // With Supabase: await upsertProfile({ id: user.id, ...updates });
+    try {
+      const updated = await upsertProfile({ id: user.id, ...updates });
+      setProfile(prev => ({ ...prev, ...updated }));
+      setUser(prev => ({ ...prev, name: updates.name }));
+    } catch (e) { console.error(e); }
   }
 
   async function handleAvatarChange(file) {
-    // With Supabase: const url = await uploadAvatar(user.id, file);
-    // For now: use local object URL preview
-    const url = URL.createObjectURL(file);
-    setProfile(prev => ({ ...prev, avatar_url: url }));
+    try {
+      const url = await uploadAvatar(user.id, file);
+      await upsertProfile({ id: user.id, avatar_url: url });
+      setProfile(prev => ({ ...prev, avatar_url: url }));
+    } catch {
+      setProfile(prev => ({ ...prev, avatar_url: URL.createObjectURL(file) }));
+    }
   }
 
-  // ── Bookings ─────────────────────────────────────────────────
-  function handleSelectCourt(court) { setBooking({ court, prefTime:'' }); setTab('booking'); }
-
+  // ── Bookings ──────────────────────────────────────────────
+  function handleSelectCourt(court) {
+    setBooking({ court, prefTime: '' }); setTab('booking');
+  }
   function handleBookFromSchedule(courtId, time) {
     const court = COURTS.find(c => c.id === courtId);
-    setBooking({ court, prefTime: time });
-    setTab('booking');
+    setBooking({ court, prefTime: time }); setTab('booking');
   }
 
-  function handleConfirm(newBooking) {
-    setBookings(prev => [...prev, newBooking]);
-    // With Supabase: await createBooking({ ...newBooking, user_id: user.id });
-    // Award points
-    setProfile(prev => ({ ...prev, points: (prev?.points || 0) + 10 }));
+  async function handleConfirm(newBooking) {
+    try {
+      await createBooking({
+        user_id: user.id, court: newBooking.court,
+        date: newBooking.date, time: newBooking.time,
+        dur: newBooking.dur, people: newBooking.people,
+        mode_key: newBooking.modeKey,
+      });
+      await loadBookings();
+      setProfile(prev => ({ ...prev, points: (prev?.points || 0) + 10 }));
+    } catch (e) {
+      console.error(e);
+      setBookings(prev => [...prev, { ...newBooking, member: user.name, isMe: true }]);
+    }
   }
 
-  function handleCancel(target) {
-    setBookings(prev => prev.filter(b =>
-      !(b.court === target.court && b.date === target.date && b.time === target.time)
-    ));
-    // With Supabase: await cancelBooking(target.id);
+  async function handleCancel(target) {
+    try {
+      if (target.id) await cancelBooking(target.id);
+      await loadBookings();
+    } catch {
+      setBookings(prev => prev.filter(b =>
+        !(b.court === target.court && b.date === target.date && b.time === target.time)
+      ));
+    }
   }
 
-  // ── TeamUp ───────────────────────────────────────────────────
+  // ── TeamUp ────────────────────────────────────────────────
   function handleBookFromPost(post) {
-    // 组队成功 → 帖子状态改为 matched
-    setPosts(prev => prev.map(p =>
-      p.id === post.id ? { ...p, status: "matched" } : p
-    ));
-
-    // 给双方都创建预约记录（去重，每人只加一条）
-    const sharedBase = {
-      court: COURTS[0].id,
-      date: post.date,
-      time: post.timeFrom,
-      dur: "1h",
-      people: post.type === "doubles" ? 4 : 2,
-      mode: post.type === "doubles" ? "双打" : "单打",
-      modeKey: post.type === "doubles" ? "doubles" : "singles",
-    };
-
-    // 收集所有参与人（发帖人 + 申请者），去重
-    const allMembers = [post.author, ...(post.applicants || [])];
-    const uniqueMembers = [...new Set(allMembers)];
-
-    const newBookings = uniqueMembers.map(member => ({
-      ...sharedBase,
-      member,
-      isMe: member === user.name,
-    }));
-
-    setBookings(prev => [...prev, ...newBookings]);
-
-    // 积分奖励
+    setPosts(prev => prev.map(p => p.id === post.id ? { ...p, status: 'matched' } : p));
+    const allMembers = [...new Set([post.author, ...(post.applicants || [])])];
+    setBookings(prev => [...prev, ...allMembers.map(member => ({
+      court: COURTS[0].id, date: post.date, time: post.timeFrom, dur: '1h',
+      people: post.type === 'doubles' ? 4 : 2,
+      modeKey: post.type === 'doubles' ? 'doubles' : 'singles',
+      member, isMe: member === user?.name,
+    }))]);
     setProfile(prev => ({ ...prev, points: (prev?.points || 0) + 10 }));
-
-    // 跳转到时刻表确认
-    setTab("mybookings");
+    setTab('mybookings');
   }
 
   function handleAddPost(post) {
@@ -132,8 +166,7 @@ export default function App() {
   }
 
   function handleSendMsg(chatWith, text, from) {
-    const now = new Date();
-    const timeStr = `${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}`;
+    const timeStr = new Date().toTimeString().slice(0, 5);
     setChats(prev => {
       const existing = prev.find(c =>
         c.participants.includes(from) && c.participants.includes(chatWith.otherUser)
@@ -150,44 +183,31 @@ export default function App() {
     });
   }
 
+  if (loading) {
+    return (
+      <div style={{ display:'flex', alignItems:'center', justifyContent:'center', height:'100vh', flexDirection:'column', gap:16 }}>
+        <div style={{ width:40, height:40, border:'3px solid #E8E4D8', borderTop:'3px solid #C9A96E', borderRadius:'50%', animation:'spin 1s linear infinite' }} />
+        <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
+        <p style={{ color:'#888', fontSize:14 }}>Loading...</p>
+      </div>
+    );
+  }
+
   if (!user) {
     return <AuthPage onLogin={handleLogin} lang={lang} onLangChange={setLang} />;
   }
 
   return (
     <div>
-      <Navbar
-        userName={user.name} activeTab={tab}
+      <Navbar userName={user.name} activeTab={tab}
         onTabChange={t => { setTab(t); setBooking(null); }}
-        onLogout={handleLogout} lang={lang} onLangChange={setLang}
-      />
-
-      {tab === 'home' && (
-        <HomePage bookings={bookings} userName={user.name} onSelectCourt={handleSelectCourt} lang={lang} />
-      )}
-      {tab === 'booking' && booking && (
-        <BookingPage court={booking.court} bookings={bookings} userName={user.name}
-          onBack={() => setTab('home')} onConfirm={handleConfirm} lang={lang} />
-      )}
-      {tab === 'schedule' && (
-        <SchedulePage bookings={bookings} userName={user.name} onBook={handleBookFromSchedule} lang={lang} />
-      )}
-      {tab === 'mybookings' && (
-        <MyBookingsPage bookings={bookings} userName={user.name} onCancel={handleCancel} lang={lang} />
-      )}
-      {tab === 'teamup' && (
-        <TeamUpPage posts={posts} chats={chats} userName={user.name} lang={lang}
-          onAddPost={handleAddPost} onApply={handleApply}
-          onSendMsg={handleSendMsg} onBookCourt={handleBookFromPost}
-        />
-      )}
-      {tab === 'profile' && (
-        <ProfilePage
-          profile={{ ...profile, email: user.email }}
-          bookings={bookings} posts={posts} lang={lang}
-          onSave={handleSaveProfile} onAvatarChange={handleAvatarChange}
-        />
-      )}
+        onLogout={handleLogout} lang={lang} onLangChange={setLang} />
+      {tab === 'home' && <HomePage bookings={bookings} userName={user.name} onSelectCourt={handleSelectCourt} lang={lang} />}
+      {tab === 'booking' && booking && <BookingPage court={booking.court} bookings={bookings} userName={user.name} onBack={() => setTab('home')} onConfirm={handleConfirm} lang={lang} />}
+      {tab === 'schedule' && <SchedulePage bookings={bookings} userName={user.name} onBook={handleBookFromSchedule} lang={lang} />}
+      {tab === 'mybookings' && <MyBookingsPage bookings={bookings} userName={user.name} onCancel={handleCancel} lang={lang} />}
+      {tab === 'teamup' && <TeamUpPage posts={posts} chats={chats} userName={user.name} lang={lang} onAddPost={handleAddPost} onApply={handleApply} onSendMsg={handleSendMsg} onBookCourt={handleBookFromPost} />}
+      {tab === 'profile' && <ProfilePage profile={{ ...profile, email: user.email }} bookings={bookings} posts={posts} lang={lang} onSave={handleSaveProfile} onAvatarChange={handleAvatarChange} />}
     </div>
   );
 }

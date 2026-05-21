@@ -1,30 +1,51 @@
 import { useState } from 'react';
 import { T } from '../data/i18n';
+import { signIn, signUp } from '../lib/supabase';
 import LanguageSwitcher from '../components/LanguageSwitcher';
 import './AuthPage.css';
 
 export default function AuthPage({ onLogin, lang, onLangChange }) {
   const t = T[lang];
-  const [mode, setMode]           = useState('login');
-  const [loginEmail, setLoginEmail] = useState('zhang@citlc.com');
-  const [loginPw,    setLoginPw]    = useState('password');
+  const [mode,       setMode]       = useState('login');
+  const [loginEmail, setLoginEmail] = useState('');
+  const [loginPw,    setLoginPw]    = useState('');
   const [regName,    setRegName]    = useState('');
   const [regEmail,   setRegEmail]   = useState('');
   const [regPhone,   setRegPhone]   = useState('');
   const [regPw,      setRegPw]      = useState('');
   const [error,      setError]      = useState('');
+  const [loading,    setLoading]    = useState(false);
+  const [success,    setSuccess]    = useState('');
 
-  function handleLogin(e) {
+  async function handleLogin(e) {
     e.preventDefault();
     if (!loginEmail || !loginPw) { setError(t.fillAll); return; }
-    const name = loginEmail.split('@')[0].replace(/[._]/g, ' ');
-    onLogin(name || t.member);
+    setLoading(true); setError('');
+    try {
+      await signIn({ email: loginEmail, password: loginPw });
+      onLogin();
+    } catch (err) {
+      setError(err.message || '登录失败，请检查邮箱和密码');
+    } finally {
+      setLoading(false);
+    }
   }
-  function handleRegister(e) {
+
+  async function handleRegister(e) {
     e.preventDefault();
     if (!regName || !regEmail || !regPhone || !regPw) { setError(t.fillAll); return; }
     if (regPw.length < 8) { setError(t.pwTooShort); return; }
-    onLogin(regName);
+    setLoading(true); setError('');
+    try {
+      await signUp({ email: regEmail, password: regPw, name: regName, phone: regPhone });
+      setSuccess('注册成功！请查收邮件验证后登录。');
+      setMode('login');
+      setLoginEmail(regEmail);
+    } catch (err) {
+      setError(err.message || '注册失败，请重试');
+    } finally {
+      setLoading(false);
+    }
   }
 
   return (
@@ -55,6 +76,7 @@ export default function AuthPage({ onLogin, lang, onLangChange }) {
             <>
               <h2>{t.welcomeBack}</h2>
               <p className="form-sub">{t.loginSub}</p>
+              {success && <p style={{ fontSize:13, color:'#2D7A2D', marginBottom:12, background:'#E8F5E8', padding:'8px 12px', borderRadius:8 }}>{success}</p>}
               <form onSubmit={handleLogin}>
                 <div className="field"><label>{t.email}</label>
                   <input type="email" placeholder="your@email.com"
@@ -63,9 +85,11 @@ export default function AuthPage({ onLogin, lang, onLangChange }) {
                   <input type="password" placeholder="••••••••"
                     value={loginPw} onChange={e => setLoginPw(e.target.value)} /></div>
                 {error && <p className="auth-error">{error}</p>}
-                <button className="btn-gold" type="submit">{t.login}</button>
+                <button className="btn-gold" type="submit" disabled={loading}>
+                  {loading ? '...' : t.login}
+                </button>
               </form>
-              <p className="switch-link">{t.noAccount} <span onClick={() => { setMode('register'); setError(''); }}>{t.registerNow}</span></p>
+              <p className="switch-link">{t.noAccount} <span onClick={() => { setMode('register'); setError(''); setSuccess(''); }}>{t.registerNow}</span></p>
             </>
           ) : (
             <>
@@ -85,7 +109,9 @@ export default function AuthPage({ onLogin, lang, onLangChange }) {
                   <input type="password" placeholder="••••••••"
                     value={regPw} onChange={e => setRegPw(e.target.value)} /></div>
                 {error && <p className="auth-error">{error}</p>}
-                <button className="btn-gold" type="submit">{t.register}</button>
+                <button className="btn-gold" type="submit" disabled={loading}>
+                  {loading ? '...' : t.register}
+                </button>
               </form>
               <p className="switch-link">{t.hasAccount} <span onClick={() => { setMode('login'); setError(''); }}>{t.backToLogin}</span></p>
             </>
