@@ -35,7 +35,6 @@ export default function App() {
   const [chats,    setChats]    = useState(INITIAL_CHATS);
   const [loading,  setLoading]  = useState(true);
 
-  // ── 初始化：检查是否已登录 ────────────────────────────────
   useEffect(() => {
     supabase.auth.getSession().then(async ({ data: { session } }) => {
       if (session?.user) await loadUser(session.user);
@@ -69,22 +68,25 @@ export default function App() {
   async function loadBookings() {
     try {
       const data = await getBookings();
+      // Normalize mode: map modeKey to display string
       setBookings(data.map(b => ({
-        id: b.id, court: b.court, date: b.date, time: b.time,
-        dur: b.dur, people: b.people, modeKey: b.mode_key,
-        member: b.profiles?.name || '', userId: b.user_id,
+        id:      b.id,
+        court:   b.court,
+        date:    b.date,
+        time:    b.time,
+        dur:     b.dur,
+        people:  b.people,
+        modeKey: b.mode_key,
+        member:  b.profiles?.name || '',
+        userId:  b.user_id,
       })));
     } catch (e) { console.error('Load bookings:', e); }
   }
 
-  // ── Auth ──────────────────────────────────────────────────
   function handleLogin() { setTab('home'); }
 
-  async function handleLogout() {
-    await signOut();
-  }
+  async function handleLogout() { await signOut(); }
 
-  // ── Profile ───────────────────────────────────────────────
   async function handleSaveProfile(updates) {
     try {
       const updated = await upsertProfile({ id: user.id, ...updates });
@@ -103,7 +105,6 @@ export default function App() {
     }
   }
 
-  // ── Bookings ──────────────────────────────────────────────
   function handleSelectCourt(court) {
     setBooking({ court, prefTime: '' }); setTab('booking');
   }
@@ -115,16 +116,18 @@ export default function App() {
   async function handleConfirm(newBooking) {
     try {
       await createBooking({
-        user_id: user.id, court: newBooking.court,
-        date: newBooking.date, time: newBooking.time,
-        dur: newBooking.dur, people: newBooking.people,
+        user_id:  user.id,
+        court:    newBooking.court,
+        date:     newBooking.date,
+        time:     newBooking.time,
+        dur:      newBooking.dur,
+        people:   newBooking.people,
         mode_key: newBooking.modeKey,
       });
       await loadBookings();
       setProfile(prev => ({ ...prev, points: (prev?.points || 0) + 10 }));
     } catch (e) {
       console.error(e);
-      setBookings(prev => [...prev, { ...newBooking, member: user.name, isMe: true }]);
     }
   }
 
@@ -132,25 +135,19 @@ export default function App() {
     try {
       if (target.id) await cancelBooking(target.id);
       await loadBookings();
-    } catch {
-      setBookings(prev => prev.filter(b =>
-        !(b.court === target.court && b.date === target.date && b.time === target.time)
-      ));
+    } catch (e) {
+      console.error(e);
     }
   }
 
-  // ── TeamUp ────────────────────────────────────────────────
+  // TeamUp — only add to local state, don't mix with Supabase bookings
   function handleBookFromPost(post) {
     setPosts(prev => prev.map(p => p.id === post.id ? { ...p, status: 'matched' } : p));
-    const allMembers = [...new Set([post.author, ...(post.applicants || [])])];
-    setBookings(prev => [...prev, ...allMembers.map(member => ({
-      court: COURTS[0].id, date: post.date, time: post.timeFrom, dur: '1h',
-      people: post.type === 'doubles' ? 4 : 2,
-      modeKey: post.type === 'doubles' ? 'doubles' : 'singles',
-      member, isMe: member === user?.name,
-    }))]);
     setProfile(prev => ({ ...prev, points: (prev?.points || 0) + 10 }));
-    setTab('mybookings');
+    // Jump to booking page so user can properly book via Supabase
+    const court = COURTS[0];
+    setBooking({ court, prefTime: post.timeFrom });
+    setTab('booking');
   }
 
   function handleAddPost(post) {

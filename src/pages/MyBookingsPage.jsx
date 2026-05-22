@@ -26,6 +26,12 @@ export default function MyBookingsPage({ bookings, userName, onCancel, lang }) {
     setConfirmIdx(null);
   }
 
+  function getModeLabel(b) {
+    if (b.modeKey && t.modeKeys && t.modeKeys[b.modeKey]) return t.modeKeys[b.modeKey];
+    if (b.mode) return b.mode;
+    return b.modeKey || '—';
+  }
+
   return (
     <div className="mybookings-page">
       <div className="mb-header">
@@ -48,7 +54,7 @@ export default function MyBookingsPage({ bookings, userName, onCancel, lang }) {
             const surfLabel = t.surfaces[court?.surfaceKey] || court?.surfaceKey;
             const typeLabel = t.types[court?.typeKey] || court?.typeKey;
             const durLabel  = t.durLabels[b.dur] || b.dur;
-            const modeLabel = t.modeKeys[b.modeKey] || b.mode || b.modeKey;
+            const modeLabel = getModeLabel(b);
             return (
               <div key={i} className={`mb-item ${isPast ? 'past' : 'upcoming'}`}>
                 <div className="mb-date-box">
