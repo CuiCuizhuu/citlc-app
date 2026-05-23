@@ -68,7 +68,6 @@ export default function App() {
   async function loadBookings() {
     try {
       const data = await getBookings();
-      // Normalize mode: map modeKey to display string
       setBookings(data.map(b => ({
         id:      b.id,
         court:   b.court,
@@ -84,7 +83,6 @@ export default function App() {
   }
 
   function handleLogin() { setTab('home'); }
-
   async function handleLogout() { await signOut(); }
 
   async function handleSaveProfile(updates) {
@@ -126,28 +124,41 @@ export default function App() {
       });
       await loadBookings();
       setProfile(prev => ({ ...prev, points: (prev?.points || 0) + 10 }));
-    } catch (e) {
-      console.error(e);
-    }
+    } catch (e) { console.error(e); }
   }
 
   async function handleCancel(target) {
     try {
       if (target.id) await cancelBooking(target.id);
       await loadBookings();
-    } catch (e) {
-      console.error(e);
-    }
+    } catch (e) { console.error(e); }
   }
 
-  // TeamUp — only add to local state, don't mix with Supabase bookings
-  function handleBookFromPost(post) {
+  // ── TeamUp: 组队成功后给当前用户自动创建预约 ──────────────
+  async function handleBookFromPost(post) {
+    // 标记帖子为已组队
     setPosts(prev => prev.map(p => p.id === post.id ? { ...p, status: 'matched' } : p));
-    setProfile(prev => ({ ...prev, points: (prev?.points || 0) + 10 }));
-    // Jump to booking page so user can properly book via Supabase
-    const court = COURTS[0];
-    setBooking({ court, prefTime: post.timeFrom });
-    setTab('booking');
+
+    // 自动给当前用户创建预约记录
+    try {
+      await createBooking({
+        user_id:  user.id,
+        court:    COURTS[0].id,
+        date:     post.date,
+        time:     post.timeFrom,
+        dur:      '1h',
+        people:   post.type === 'doubles' ? 4 : 2,
+        mode_key: post.type === 'doubles' ? 'doubles' : 'singles',
+      });
+      await loadBookings();
+      setProfile(prev => ({ ...prev, points: (prev?.points || 0) + 10 }));
+      setTab('mybookings'); // 直接跳到我的预约查看
+    } catch (e) {
+      console.error('组队预约失败:', e);
+      // 如果失败，跳到预约页让用户手动预约
+      setBooking({ court: COURTS[0], prefTime: post.timeFrom });
+      setTab('booking');
+    }
   }
 
   function handleAddPost(post) {
