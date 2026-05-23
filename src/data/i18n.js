@@ -47,6 +47,7 @@ export const T = {
     schedule:        '时刻表',
     myBookings:      '我的预约',
     teamUpNav:       '组队',
+    profileNav:      '我的档案',
     logout:          '退出',
 
     // Home
@@ -204,6 +205,7 @@ export const T = {
     schedule:        'Schedule',
     myBookings:      'My Bookings',
     teamUpNav:       'Find Partner',
+    profileNav:      'My Profile',
     logout:          'Sign out',
 
     todayOpen:       'Open today',
@@ -353,6 +355,7 @@ export const T = {
     schedule:        'Zeitplan',
     myBookings:      'Meine Buchungen',
     teamUpNav:       'Mitspieler',
+    profileNav:      'Mein Profil',
     logout:          'Abmelden',
 
     todayOpen:       'Heute geöffnet',
@@ -502,6 +505,7 @@ export const T = {
     schedule:        'Planning',
     myBookings:      'Mes réservations',
     teamUpNav:       'Partenaire',
+    profileNav:      'Mon profil',
     logout:          'Se déconnecter',
 
     todayOpen:       'Ouvert aujourd\'hui',
