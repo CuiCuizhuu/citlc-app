@@ -1,27 +1,22 @@
 import { useState, useEffect } from 'react';
 import './index.css';
 
-import AuthPage       from './pages/AuthPage';
-import HomePage       from './pages/HomePage';
-import BookingPage    from './pages/BookingPage';
-import SchedulePage   from './pages/SchedulePage';
-import MyBookingsPage from './pages/MyBookingsPage';
-import TeamUpPage     from './pages/TeamUpPage';
-import ProfilePage    from './pages/ProfilePage';
-import Navbar         from './components/Navbar';
+import AuthPage            from './pages/AuthPage';
+import HomePage            from './pages/HomePage';
+import BookingPage         from './pages/BookingPage';
+import SchedulePage        from './pages/SchedulePage';
+import MyBookingsPage      from './pages/MyBookingsPage';
+import TeamUpPage          from './pages/TeamUpPage';
+import ProfilePage         from './pages/ProfilePage';
+import PublicSchedulePage  from './pages/PublicSchedulePage';
+import Navbar              from './components/Navbar';
 
 import { COURTS } from './data/data';
 import { INITIAL_POSTS, INITIAL_CHATS } from './data/teamup';
 
 import {
-  supabase,
-  signOut,
-  getProfile,
-  upsertProfile,
-  uploadAvatar,
-  getBookings,
-  createBooking,
-  cancelBooking,
+  supabase, signOut, getProfile, upsertProfile,
+  uploadAvatar, getBookings, createBooking, cancelBooking,
 } from './lib/supabase';
 
 export default function App() {
@@ -35,15 +30,18 @@ export default function App() {
   const [chats,    setChats]    = useState(INITIAL_CHATS);
   const [loading,  setLoading]  = useState(true);
 
+  // Check if opened via QR code (?public=1)
+  const isPublic = new URLSearchParams(window.location.search).get('public') === '1';
+  const [showPublic, setShowPublic] = useState(isPublic && !user);
+
   useEffect(() => {
     supabase.auth.getSession().then(async ({ data: { session } }) => {
-      if (session?.user) await loadUser(session.user);
+      if (session?.user) { await loadUser(session.user); setShowPublic(false); }
       setLoading(false);
     });
-
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
       if (event === 'SIGNED_IN' && session?.user) {
-        await loadUser(session.user);
+        await loadUser(session.user); setShowPublic(false);
       } else if (event === 'SIGNED_OUT') {
         setUser(null); setProfile(null); setBookings([]); setTab('home');
       }
@@ -58,31 +56,22 @@ export default function App() {
       setProfile({ ...prof, email: authUser.email });
       await loadBookings();
     };
-    try {
-      await tryLoad();
-    } catch {
-      setTimeout(async () => { try { await tryLoad(); } catch (e) { console.error(e); } }, 1500);
-    }
+    try { await tryLoad(); }
+    catch { setTimeout(async () => { try { await tryLoad(); } catch (e) { console.error(e); } }, 1500); }
   }
 
   async function loadBookings() {
     try {
       const data = await getBookings();
       setBookings(data.map(b => ({
-        id:      b.id,
-        court:   b.court,
-        date:    b.date,
-        time:    b.time,
-        dur:     b.dur,
-        people:  b.people,
-        modeKey: b.mode_key,
-        member:  b.profiles?.name || '',
-        userId:  b.user_id,
+        id: b.id, court: b.court, date: b.date, time: b.time,
+        dur: b.dur, people: b.people, modeKey: b.mode_key,
+        member: b.profiles?.name || '', userId: b.user_id,
       })));
-    } catch (e) { console.error('Load bookings:', e); }
+    } catch (e) { console.error(e); }
   }
 
-  function handleLogin() { setTab('home'); }
+  function handleLogin() { setTab('home'); setShowPublic(false); }
   async function handleLogout() { await signOut(); }
 
   async function handleSaveProfile(updates) {
@@ -103,9 +92,7 @@ export default function App() {
     }
   }
 
-  function handleSelectCourt(court) {
-    setBooking({ court, prefTime: '' }); setTab('booking');
-  }
+  function handleSelectCourt(court) { setBooking({ court, prefTime:'' }); setTab('booking'); }
   function handleBookFromSchedule(courtId, time) {
     const court = COURTS.find(c => c.id === courtId);
     setBooking({ court, prefTime: time }); setTab('booking');
@@ -114,12 +101,8 @@ export default function App() {
   async function handleConfirm(newBooking) {
     try {
       await createBooking({
-        user_id:  user.id,
-        court:    newBooking.court,
-        date:     newBooking.date,
-        time:     newBooking.time,
-        dur:      newBooking.dur,
-        people:   newBooking.people,
+        user_id: user.id, court: newBooking.court, date: newBooking.date,
+        time: newBooking.time, dur: newBooking.dur, people: newBooking.people,
         mode_key: newBooking.modeKey,
       });
       await loadBookings();
@@ -134,28 +117,30 @@ export default function App() {
     } catch (e) { console.error(e); }
   }
 
-  // ── TeamUp: 组队成功后给当前用户自动创建预约 ──────────────
-  async function handleBookFromPost(post) {
-    // 标记帖子为已组队
-    setPosts(prev => prev.map(p => p.id === post.id ? { ...p, status: 'matched' } : p));
+  // Called from public page when user clicks a slot or "Book Now"
+  function handlePublicBook(courtId, time) {
+    // Not logged in → show auth page, remember what they wanted to book
+    if (courtId) {
+      const court = COURTS.find(c => c.id === courtId);
+      setBooking({ court, prefTime: time });
+    }
+    setShowPublic(false); // go to auth
+  }
 
-    // 自动给当前用户创建预约记录
+  async function handleBookFromPost(post) {
+    setPosts(prev => prev.map(p => p.id === post.id ? { ...p, status:'matched' } : p));
     try {
       await createBooking({
-        user_id:  user.id,
-        court:    COURTS[0].id,
-        date:     post.date,
-        time:     post.timeFrom,
-        dur:      '1h',
-        people:   post.type === 'doubles' ? 4 : 2,
+        user_id: user.id, court: COURTS[0].id, date: post.date,
+        time: post.timeFrom, dur: '1h',
+        people: post.type === 'doubles' ? 4 : 2,
         mode_key: post.type === 'doubles' ? 'doubles' : 'singles',
       });
       await loadBookings();
       setProfile(prev => ({ ...prev, points: (prev?.points || 0) + 10 }));
-      setTab('mybookings'); // 直接跳到我的预约查看
+      setTab('mybookings');
     } catch (e) {
-      console.error('组队预约失败:', e);
-      // 如果失败，跳到预约页让用户手动预约
+      console.error(e);
       setBooking({ court: COURTS[0], prefTime: post.timeFrom });
       setTab('booking');
     }
@@ -165,29 +150,23 @@ export default function App() {
     setPosts(prev => [post, ...prev]);
     setProfile(prev => ({ ...prev, points: (prev?.points || 0) + 5 }));
   }
-
   function handleApply(postId, applicant) {
     setPosts(prev => prev.map(p =>
       p.id === postId && !p.applicants.includes(applicant)
         ? { ...p, applicants: [...p.applicants, applicant] } : p
     ));
   }
-
   function handleSendMsg(chatWith, text, from) {
     const timeStr = new Date().toTimeString().slice(0, 5);
     setChats(prev => {
       const existing = prev.find(c =>
         c.participants.includes(from) && c.participants.includes(chatWith.otherUser)
       );
-      if (existing) {
-        return prev.map(c => c.id === existing.id
-          ? { ...c, messages: [...c.messages, { from, text, time: timeStr }] } : c
-        );
-      }
-      return [...prev, {
-        id: 'c' + Date.now(), participants: [from, chatWith.otherUser],
-        postId: chatWith.postId, messages: [{ from, text, time: timeStr }],
-      }];
+      if (existing) return prev.map(c => c.id === existing.id
+        ? { ...c, messages: [...c.messages, { from, text, time: timeStr }] } : c
+      );
+      return [...prev, { id:'c'+Date.now(), participants:[from, chatWith.otherUser],
+        postId: chatWith.postId, messages:[{ from, text, time: timeStr }] }];
     });
   }
 
@@ -195,14 +174,25 @@ export default function App() {
     return (
       <div style={{ display:'flex', alignItems:'center', justifyContent:'center', height:'100vh', flexDirection:'column', gap:16 }}>
         <div style={{ width:40, height:40, border:'3px solid #E8E4D8', borderTop:'3px solid #C9A96E', borderRadius:'50%', animation:'spin 1s linear infinite' }} />
-        <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
+        <style>{`@keyframes spin { to { transform:rotate(360deg); } }`}</style>
         <p style={{ color:'#888', fontSize:14 }}>Loading...</p>
       </div>
     );
   }
 
+  // ── Public page (QR code entry) ──
+  if (showPublic) {
+    return <PublicSchedulePage onBook={handlePublicBook} lang={lang} />;
+  }
+
+  // ── Auth ──
   if (!user) {
     return <AuthPage onLogin={handleLogin} lang={lang} onLangChange={setLang} />;
+  }
+
+  // ── After login, if they came from public and had a booking intent ──
+  if (user && booking && tab !== 'booking') {
+    // Auto-navigate to booking if they clicked a slot on public page
   }
 
   return (
@@ -210,6 +200,7 @@ export default function App() {
       <Navbar userName={user.name} activeTab={tab}
         onTabChange={t => { setTab(t); setBooking(null); }}
         onLogout={handleLogout} lang={lang} onLangChange={setLang} />
+
       {tab === 'home' && <HomePage bookings={bookings} userName={user.name} onSelectCourt={handleSelectCourt} lang={lang} />}
       {tab === 'booking' && booking && <BookingPage court={booking.court} bookings={bookings} userName={user.name} onBack={() => setTab('home')} onConfirm={handleConfirm} lang={lang} />}
       {tab === 'schedule' && <SchedulePage bookings={bookings} userName={user.name} onBook={handleBookFromSchedule} lang={lang} />}
