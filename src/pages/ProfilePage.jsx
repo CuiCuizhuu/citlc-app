@@ -1,7 +1,8 @@
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { T } from '../data/i18n';
-import { getDates, getToday } from '../data/dates';
 import { COURTS } from '../data/data';
+import { CLUB_INFO } from '../club';
+import { getToday } from '../data/dates';
 import './ProfilePage.css';
 
 const COURT_MAP  = Object.fromEntries(COURTS.map(c => [c.id, c]));
@@ -9,7 +10,7 @@ const LEVEL_KEYS = ['beginner', 'intermediate', 'advanced', 'pro'];
 
 export default function ProfilePage({ profile, bookings, posts, lang, onSave, onAvatarChange }) {
   const t  = T[lang];
-  const tp = t.profile;
+  const tp = t.profile || {};
 
   const [editing, setEditing]   = useState(false);
   const [name,    setName]      = useState(profile?.name    || '');
@@ -18,23 +19,33 @@ export default function ProfilePage({ profile, bookings, posts, lang, onSave, on
   const [years,   setYears]     = useState(profile?.years_playing || 1);
   const [bio,     setBio]       = useState(profile?.bio     || '');
   const [saving,  setSaving]    = useState(false);
-  const [tab,     setTab]       = useState('stats');  // stats | bookings | teams
+  const [tab,     setTab]       = useState('stats');
+  const [showQR,  setShowQR]    = useState(false);
+  const qrRef = useRef();
   const fileRef = useRef();
 
+  const today = getToday();
   const myBookings = (bookings || []).filter(b => b.member === profile?.name || b.isMe);
   const myPosts    = (posts    || []).filter(p => p.author === profile?.name);
-  const today = getToday();
 
-  // Stats
-  const totalBookings   = myBookings.length;
-  const completedGames  = myBookings.filter(b => b.date < today).length;
-  const upcomingGames   = myBookings.filter(b => b.date >= today).length;
-  const favoriteMode    = (() => {
-    const counts = {};
-    myBookings.forEach(b => { counts[b.mode] = (counts[b.mode] || 0) + 1; });
-    return Object.entries(counts).sort((a, b) => b[1] - a[1])[0]?.[0] || '—';
-  })();
+  const totalBookings  = myBookings.length;
+  const completedGames = myBookings.filter(b => b.date < today).length;
+  const upcomingGames  = myBookings.filter(b => b.date >= today).length;
   const points = profile?.points || (completedGames * 10);
+
+  const favoriteMode = (() => {
+    const counts = {};
+    myBookings.forEach(b => {
+      const key = b.modeKey || b.mode || '—';
+      counts[key] = (counts[key] || 0) + 1;
+    });
+    const top = Object.entries(counts).sort((a, b) => b[1] - a[1])[0]?.[0];
+    if (!top) return '—';
+    return (t.modeKeys && t.modeKeys[top]) || top;
+  })();
+
+  // Generate QR code using QR Server API
+  const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(CLUB_INFO.website)}`;
 
   async function handleSave() {
     setSaving(true);
@@ -46,40 +57,59 @@ export default function ProfilePage({ profile, bookings, posts, lang, onSave, on
     }
   }
 
-  async function handleAvatarClick() {
-    fileRef.current?.click();
-  }
-
-  async function handleFileChange(e) {
-    const file = e.target.files?.[0];
-    if (file) onAvatarChange(file);
-  }
-
-  const levelColor = { beginner:'#4A7C28', intermediate:'#C9A96E', advanced:'#4A6A9E', pro:'#8A2020' };
+  const levelColor = {
+    beginner: '#4A7C28', intermediate: '#C9A96E',
+    advanced: '#4A6A9E', pro: '#8A2020'
+  };
 
   return (
     <div className="profile-page">
-      {/* Hero banner */}
+
+      {/* ── 俱乐部信息卡片 ── */}
+      <div className="club-card">
+        <div className="club-card-left">
+          <div className="club-logo-circle">🎾</div>
+          <div>
+            <div className="club-name">{CLUB_INFO.name}</div>
+            <div className="club-meta-row">
+              <span>📍 {CLUB_INFO.address}</span>
+            </div>
+            <div className="club-meta-row">
+              <span>📞 {CLUB_INFO.phone}</span>
+              <span className="club-divider">·</span>
+              <span>✉️ {CLUB_INFO.email}</span>
+            </div>
+            <div className="club-meta-row">
+              <span>🕐 {CLUB_INFO.hours}</span>
+            </div>
+          </div>
+        </div>
+        <button className="btn-qr" onClick={() => setShowQR(true)}>
+          📱 QR Code
+        </button>
+      </div>
+
+      {/* ── 会员 Hero ── */}
       <div className="profile-hero">
-        <div className="profile-avatar-wrap" onClick={handleAvatarClick} title={tp.changeAvatar}>
+        <div className="profile-avatar-wrap" onClick={() => fileRef.current?.click()}>
           {profile?.avatar_url
             ? <img src={profile.avatar_url} alt="avatar" className="profile-avatar-img" />
             : <div className="profile-avatar-placeholder">{(profile?.name || '?').slice(0, 1)}</div>
           }
           <div className="avatar-overlay">📷</div>
-          <input ref={fileRef} type="file" accept="image/*" style={{ display:'none' }} onChange={handleFileChange} />
+          <input ref={fileRef} type="file" accept="image/*" style={{ display:'none' }}
+            onChange={e => { const f = e.target.files?.[0]; if (f) onAvatarChange(f); }} />
         </div>
 
         <div className="profile-hero-info">
-          {editing ? (
-            <input className="profile-name-input" value={name}
-              onChange={e => setName(e.target.value)} placeholder={tp.namePh} />
-          ) : (
-            <h2 className="profile-name">{profile?.name || '—'}</h2>
-          )}
+          {editing
+            ? <input className="profile-name-input" value={name} onChange={e => setName(e.target.value)} />
+            : <h2 className="profile-name">{profile?.name || '—'}</h2>
+          }
           <div className="profile-level-row">
-            <span className="profile-level-badge" style={{ background: levelColor[level] + '22', color: levelColor[level] }}>
-              {tp.levels[level]}
+            <span className="profile-level-badge"
+              style={{ background: levelColor[level] + '22', color: levelColor[level] }}>
+              {tp.levels?.[level] || level}
             </span>
             <span className="profile-years">{years} {tp.yearsPlaying}</span>
           </div>
@@ -92,11 +122,11 @@ export default function ProfilePage({ profile, bookings, posts, lang, onSave, on
         </div>
       </div>
 
-      {/* Edit / Save bar */}
+      {/* ── Action bar ── */}
       <div className="profile-action-bar">
         {editing ? (
           <>
-            <button className="btn-outline" onClick={() => setEditing(false)}>{t.close}</button>
+            <button className="btn-outline" onClick={() => setEditing(false)}>{t.close || '关闭'}</button>
             <button className="btn-gold" style={{ flex:1 }} onClick={handleSave} disabled={saving}>
               {saving ? tp.saving : tp.save}
             </button>
@@ -108,7 +138,7 @@ export default function ProfilePage({ profile, bookings, posts, lang, onSave, on
         )}
       </div>
 
-      {/* Edit fields */}
+      {/* ── Edit fields ── */}
       {editing && (
         <div className="profile-edit-fields fade-up">
           <div className="field-group">
@@ -121,7 +151,7 @@ export default function ProfilePage({ profile, bookings, posts, lang, onSave, on
             <div className="pill-row">
               {LEVEL_KEYS.map(k => (
                 <button key={k} className={`pill ${level === k ? 'active' : ''}`}
-                  onClick={() => setLevel(k)}>{tp.levels[k]}</button>
+                  onClick={() => setLevel(k)}>{tp.levels?.[k] || k}</button>
               ))}
             </div>
           </div>
@@ -141,19 +171,18 @@ export default function ProfilePage({ profile, bookings, posts, lang, onSave, on
         </div>
       )}
 
-      {/* Bio display */}
       {!editing && profile?.bio && (
         <div className="profile-bio">"{profile.bio}"</div>
       )}
 
-      {/* Stats tabs */}
+      {/* ── Stats tabs ── */}
       <div className="profile-tabs">
-        <button className={`profile-tab ${tab === 'stats'    ? 'on' : ''}`} onClick={() => setTab('stats')}>{tp.stats}</button>
-        <button className={`profile-tab ${tab === 'bookings' ? 'on' : ''}`} onClick={() => setTab('bookings')}>{tp.bookHistory}</button>
-        <button className={`profile-tab ${tab === 'teams'    ? 'on' : ''}`} onClick={() => setTab('teams')}>{tp.teamHistory}</button>
+        <button className={`profile-tab ${tab==='stats'    ? 'on':''}`} onClick={() => setTab('stats')}>{tp.stats}</button>
+        <button className={`profile-tab ${tab==='bookings' ? 'on':''}`} onClick={() => setTab('bookings')}>{tp.bookHistory}</button>
+        <button className={`profile-tab ${tab==='teams'    ? 'on':''}`} onClick={() => setTab('teams')}>{tp.teamHistory}</button>
       </div>
 
-      {/* Stats */}
+      {/* ── Stats ── */}
       {tab === 'stats' && (
         <div className="stats-grid fade-up">
           <StatCard icon="🎾" value={totalBookings}  label={tp.totalGames} color="gold" />
@@ -173,7 +202,7 @@ export default function ProfilePage({ profile, bookings, posts, lang, onSave, on
         </div>
       )}
 
-      {/* Booking history */}
+      {/* ── Booking history ── */}
       {tab === 'bookings' && (
         <div className="profile-list fade-up">
           {myBookings.length === 0 ? (
@@ -182,15 +211,16 @@ export default function ProfilePage({ profile, bookings, posts, lang, onSave, on
             myBookings.map((b, i) => {
               const court  = COURT_MAP[b.court];
               const isPast = b.date < today;
+              const modeLabel = (t.modeKeys && t.modeKeys[b.modeKey]) || b.mode || b.modeKey || '—';
               return (
                 <div key={i} className={`profile-list-item ${isPast ? 'past' : 'upcoming'}`}>
                   <div className="pli-dot" style={{ background: isPast ? '#CCCCCC' : '#C9A96E' }} />
                   <div className="pli-info">
                     <div className="pli-title">{court?.name} · {b.date} · {b.time}</div>
-                    <div className="pli-meta">{b.dur} · {b.people} p. · {b.mode}</div>
+                    <div className="pli-meta">{b.dur} · {b.people} p. · {modeLabel}</div>
                   </div>
                   <span className={`mb-badge ${isPast ? 'past' : 'upcoming'}`}>
-                    {isPast ? t.completed : t.upcoming}
+                    {isPast ? (tp.completed || '已完成') : (tp.upcoming || '即将开始')}
                   </span>
                 </div>
               );
@@ -199,7 +229,7 @@ export default function ProfilePage({ profile, bookings, posts, lang, onSave, on
         </div>
       )}
 
-      {/* Team history */}
+      {/* ── Team history ── */}
       {tab === 'teams' && (
         <div className="profile-list fade-up">
           {myPosts.length === 0 ? (
@@ -212,10 +242,34 @@ export default function ProfilePage({ profile, bookings, posts, lang, onSave, on
                   <div className="pli-title">{p.date} · {p.timeFrom}–{p.timeTo}</div>
                   <div className="pli-meta">{p.type} · {p.applicants?.length || 0} {tp.applicants}</div>
                 </div>
-                <span className={`post-status-tag ${p.status}`}>{T[lang].teamUp?.statuses?.[p.status]}</span>
+                <span className={`post-status-tag ${p.status}`}>
+                  {T[lang].teamUp?.statuses?.[p.status] || p.status}
+                </span>
               </div>
             ))
           )}
+        </div>
+      )}
+
+      {/* ── QR Code Modal ── */}
+      {showQR && (
+        <div className="modal-overlay" onClick={() => setShowQR(false)}>
+          <div className="modal-box fade-up" onClick={e => e.stopPropagation()}
+            style={{ maxWidth: 300, textAlign:'center' }}>
+            <div className="modal-header" style={{ marginBottom:16 }}>扫码打开预约页面</div>
+            <div className="modal-body">
+              <img ref={qrRef} src={qrUrl} alt="QR Code"
+                style={{ width:200, height:200, margin:'0 auto', display:'block',
+                         border:'8px solid white', borderRadius:12, boxShadow:'0 4px 20px rgba(0,0,0,0.1)' }} />
+              <p style={{ fontSize:12, color:'var(--ink-soft)', marginTop:12 }}>{CLUB_INFO.website}</p>
+              <p style={{ fontSize:11, color:'var(--ink-soft)', marginTop:6 }}>
+                长按图片保存，分享给会员
+              </p>
+            </div>
+            <div className="modal-footer">
+              <button className="btn-gold" style={{ flex:1 }} onClick={() => setShowQR(false)}>关闭</button>
+            </div>
+          </div>
         </div>
       )}
     </div>
